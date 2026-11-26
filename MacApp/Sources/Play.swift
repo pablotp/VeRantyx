@@ -33,13 +33,14 @@ enum Route: String, CaseIterable, Identifiable {
 }
 
 enum Quality: String, CaseIterable, Identifiable {
-    case standard, sharp, k3 = "3k", k25 = "2.5k", max
+    case standard, sharp, sharpest, k3 = "3k", k25 = "2.5k", max
     var id: String { rawValue }
-    static func choices(for headset: Headset) -> [Quality] { headset.usesALVR ? [.standard, .sharp] : [.standard, .k3, .k25, .max] }
+    static func choices(for headset: Headset) -> [Quality] { headset.usesALVR ? [.standard, .sharp, .sharpest] : [.standard, .k3, .k25, .max] }
     var name: String {
         switch self {
         case .standard: return T("Recommended", "おすすめ")
         case .sharp: return T("Sharper", "高精細")
+        case .sharpest: return T("Sharpest", "最高精細")
         case .k3: return "3K"
         case .k25: return "2.5K"
         case .max: return T("Maximum", "最高")
@@ -50,6 +51,8 @@ enum Quality: String, CaseIterable, Identifiable {
         case .standard: return T("Smooth on any Apple silicon Mac.", "どの Apple silicon Mac でも滑らか。")
         case .sharp: return T("Renders about 1300×1400 per eye (Recommended: 850×920), at 150 Mbps: for Pro and Max chips, best over a USB cable.",
                               "片目 約 1300×1400 で描画（おすすめは 850×920）・150 Mbps。Pro・Max チップ向け、USB ケーブル推奨。")
+        case .sharpest: return T("Renders about 2000×2000 per eye at 72 Hz, 150 Mbps over a USB cable: for Max chips (an M4 Max held 72 fps). Windows mode only.",
+                                 "片目 約 2000×2000・72 Hz・150 Mbps（USB ケーブル）。Max チップ向け（M4 Max で 72 fps）。Windows モードのみ。")
         case .k3: return T("1440×1620 per eye, 60 fps: for Pro and Max chips (24+ GPU cores).", "片目 1440×1620・60 fps。Pro・Max チップ向け（GPU 24 コア以上）。")
         case .k25: return T("2560×2880 per eye rendered: Max chips; 30–50 fps.", "片目 2560×2880 で描画。Max チップ向け、30〜50 fps。")
         case .max: return T("A Vision Pro eye's pixels: 16–21 fps on an M1 Max.", "Vision Pro の片目の画素数。M1 Max で 16〜21 fps。")
@@ -176,6 +179,15 @@ enum Quality: String, CaseIterable, Identifiable {
                 env["VERANTYX_STREAM_WIDTH"] = "2560"; env["VERANTYX_STREAM_HEIGHT"] = "1440"; env["VERANTYX_BITRATE_MBPS"] = "150"
                 // Raising the ceiling must not also raise the fallback floor.
                 if env["VERANTYX_BITRATE_MIN_MBPS"] == nil { env["VERANTYX_BITRATE_MIN_MBPS"] = backend == .nativeARM64 ? "28" : "40" }
+            } else if quality == .sharpest {
+                // (2.2: 1868x1868 per eye asked of a Pico 4 Ultra, 2000x2000 rendered at fidelity 4 (x1.071). An M4 Max held 72 fps there: harness run
+                //  20261126T095148Z-alyx-chapter-3k at this scale, 72.0 fps, GPU 65 %; in the headset 71.8 fps median,
+                //  GPU 59 %, encoder without drops at 3456x1728. 2.6 no longer held 72: 70.9 and 68.1 fps, GPU 99-100 %.
+                //  Alyx's fidelity fixed at 4 as in those runs: left automatic it raises its own size.)
+                env["VXRT_VR_RENDER_SCALE"] = "2.2"
+                env["VERANTYX_STREAM_WIDTH"] = "3456"; env["VERANTYX_STREAM_HEIGHT"] = "1728"; env["VERANTYX_BITRATE_MBPS"] = "150"
+                if env["VERANTYX_BITRATE_MIN_MBPS"] == nil { env["VERANTYX_BITRATE_MIN_MBPS"] = "40" }
+                env["VXRT_ALYX_FIDELITY"] = "4"
             }
         } else if [.k3, .k25, .max].contains(quality) {
             env["VXRT_VR_QUALITY"] = quality.rawValue

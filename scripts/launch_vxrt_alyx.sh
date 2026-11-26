@@ -79,6 +79,8 @@ if [[ "${VXRT_VR_QUALITY:-}" == 2.5k || "${VXRT_VR_QUALITY:-}" == max ]]; then
 elif [[ "${VXRT_VR_QUALITY:-}" == 3k ]]; then
     GAME_ARGS=(-noautofidelity +vr_fidelity_level 4)
 fi
+# VXRT_ALYX_FIDELITY: the fidelity level fixed without a Vision Pro preset (the app's Sharpest for ALVR headsets, 4).
+[[ -n "${VXRT_ALYX_FIDELITY:-}" ]] && GAME_ARGS=(-noautofidelity +vr_fidelity_level "$VXRT_ALYX_FIDELITY")
 PROXY_DLL="$REPO_ROOT/build/openvr_api_capture_proxy.dll"
 if [[ ! -f "$PROXY_DLL" || "$REPO_ROOT/VRDriver/src/openvr_capture_proxy.cpp" -nt "$PROXY_DLL" ]]; then
     "$SCRIPT_DIR/build_openvr_capture_proxy.sh" >/dev/null
