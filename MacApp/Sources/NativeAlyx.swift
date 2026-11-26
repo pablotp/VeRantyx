@@ -175,8 +175,13 @@ enum NativeArchive {
         // ar writes into its current directory; never into the game or the application bundle.
         let p = Process(); p.executableURL = URL(fileURLWithPath: "/usr/bin/ar"); p.arguments = ["-x", deb.path, member]; p.currentDirectoryURL = stage
         p.standardInput = FileHandle.nullDevice; p.standardOutput = FileHandle.nullDevice; p.standardError = FileHandle.nullDevice
-        try p.run(); await Task.detached { p.waitUntilExit() }.value
-        guard p.terminationStatus == 0 else { throw NativeFailure("Could not unpack Debian archive") }
+        // A termination handler, not waitUntilExit: on a task's thread there is no run loop to deliver the exit, and
+        // waitUntilExit never returned once ar had already exited (Pico user, 2026-11-26: preparation stuck at libgcc-s1).
+        let status: Int32 = try await withCheckedThrowingContinuation { done in
+            p.terminationHandler = { done.resume(returning: $0.terminationStatus) }
+            do { try p.run() } catch { p.terminationHandler = nil; done.resume(throwing: error) }
+        }
+        guard status == 0 else { throw NativeFailure("Could not unpack Debian archive") }
         let tar = stage.appendingPathComponent(member)
         let list = await run("/usr/bin/tar", ["-tf", tar.path])
         guard list.status == 0, list.text.split(separator: "\n").allSatisfy({ path in !path.hasPrefix("/") && !path.split(separator: "/").contains("..") }) else { throw NativeFailure("Unsafe Debian archive path") }
